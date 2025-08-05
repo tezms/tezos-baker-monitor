@@ -13,9 +13,11 @@ Features
 
 Setup
 -----
-1. Clone the repository and install dependencies:
+1. Clone the repository, setup a virtual Python environmetn, and install dependencies:
    ```bash
-   pip install -r requirements.txt
+   python3 -m venv myenv
+   source myenv/bin/activate
+   python3 -m pip install -r requirements.txt
    ```
 
 2. Configure your `.env` file with the following variables:
@@ -41,7 +43,7 @@ Running
 -------
 Run the monitor with:
 ```bash
-python main.py
+python3 main.py
 ```
 
 The script will:

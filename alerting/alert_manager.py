@@ -50,6 +50,7 @@ def send_alert_to_cloudwatch(message):
     if sequence_token:
         log_event['sequenceToken'] = sequence_token
     client.put_log_events(**log_event)
+    print(f"CloudWatch alert sent: {message}")
 
 def send_alert_to_telegram(message):
     """
@@ -65,8 +66,11 @@ def send_alert_to_telegram(message):
         response = requests.post(url, data=data)
         if response.status_code != 200:
             print(f"Failed to send Telegram alert: {response.text}")
+        else:
+            print(f"Telegram alert sent: {message}")
     except Exception as e:
         print(f"Exception sending Telegram alert: {e}")
+    
 
 def send_alert(message):
     print(f"ALERT: {message}")
