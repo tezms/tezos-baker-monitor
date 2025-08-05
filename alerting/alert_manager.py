@@ -11,13 +11,15 @@ CLOUDWATCH_LOG_GROUP = os.getenv('CLOUDWATCH_LOG_GROUP', 'TezosBakerMonitorAlert
 SEND_ALERT_TO_TELEGRAM = os.getenv('SEND_ALERT_TO_TELEGRAM', 'false').lower() == 'true'
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+REGION = os.getenv('AWS_REGION', 'eu-west-1')
 
 def send_alert_to_cloudwatch(message):
     """
     Send alert message to AWS CloudWatch log group.
     Requires AWS credentials to be configured.
     """
-    client = boto3.client('logs')
+    
+    client = boto3.client('logs', region_name=REGION)
     timestamp = int(datetime.datetime.now().timestamp() * 1000)
     # Ensure log group exists
     try:

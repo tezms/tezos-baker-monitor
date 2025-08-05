@@ -1,12 +1,14 @@
+# First load the environment variables from .env file, since they are needed for some of the rest of the imports
+from dotenv import load_dotenv
+load_dotenv()
 import os
 import time
-from dotenv import load_dotenv
 from rpc.rpc_client import RPC
 from alerting.alert_manager import send_alert
 from database.db import get_engine, get_session, init_db, State, BlockBaking, BlockAttestation
 
 # Load environment variables from .env
-load_dotenv()
+
 RPC_URL = os.getenv('RPC_URL')
 DELEGATES_TO_MONITOR_PARAMETER = os.getenv('DELEGATES_TO_MONITOR_PARAMETER')
 BLOCK_SLIDING_WINDOW_SIZE = os.getenv('BLOCK_SLIDING_WINDOW_SIZE') 
@@ -43,7 +45,7 @@ def process_baking_rights(session, rpc, block_level, delegates):
         block_info = rpc.get_block_info(block_level)
         baker = block_info['metadata']['baker']
         if baker != baking_round0_right:
-            send_alert(f"!!! Delegate {baking_round0_right} has baking rights for block {block_level}, but it was baked by {baker}.")
+            print(f"Delegate {baking_round0_right} has baking rights for block {block_level}, but it was baked by {baker}.")
             block_entry = BlockBaking(block_level=block_level, delegate=baking_round0_right, successful=0)
         else:
             print(f"Delegate {baking_round0_right} successfully baked block {block_level}")
@@ -76,7 +78,7 @@ def process_attestation_rights(session, rpc, block_level, delegates):
             if attested:
                 block_entry = BlockAttestation(block_level=block_level, delegate=attestation_delegate, successful=1)
             else:
-                send_alert(f"!!! Delegate {attestation_delegate} did NOT attest block {block_level}")
+                print(f"Delegate {attestation_delegate} did NOT attest block {block_level}")
                 block_entry = BlockAttestation(block_level=block_level, delegate=attestation_delegate, successful=0)
             session.add(block_entry)
             session.commit()
