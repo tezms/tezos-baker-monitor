@@ -9,6 +9,7 @@ from database.db import get_engine, get_session, init_db, State, BlockBaking, Bl
 
 # Load environment variables from .env
 
+import json
 RPC_URL = os.getenv('RPC_URL')
 DELEGATES_TO_MONITOR_PARAMETER = os.getenv('DELEGATES_TO_MONITOR_PARAMETER')
 BLOCK_SLIDING_WINDOW_SIZE = os.getenv('BLOCK_SLIDING_WINDOW_SIZE') 
@@ -17,7 +18,11 @@ ALERT_BAKING_BLOCK_WINDOW = int(os.getenv('ALERT_BAKING_BLOCK_WINDOW'))
 ALERT_ATTESTATION_THRESHOLD = int(os.getenv('ALERT_ATTESTATION_THRESHOLD'))
 ALERT_ATTESTATION_BLOCK_WINDOW = int(os.getenv('ALERT_ATTESTATION_BLOCK_WINDOW'))
 ALERT_INACTIVE_STATE_THRESHOLD = int(os.getenv('ALERT_INACTIVE_STATE_THRESHOLD', 600))  # Default to 10 minutes
-delegates = [addr.strip() for addr in DELEGATES_TO_MONITOR_PARAMETER.split(',')]
+# Load delegates from JSON file
+with open(DELEGATES_TO_MONITOR_PARAMETER, 'r') as f:
+    delegates_json = json.load(f)
+delegates = [entry['address'] for entry in delegates_json]
+delegate_names = {entry['address']: entry.get('name', entry['address']) for entry in delegates_json}
 
 # Main function to monitor delegates
 
@@ -39,47 +44,60 @@ def save_last_processed_level(session, level):
 def process_baking_rights(session, rpc, block_level, delegates):
     baking_opportunities = rpc.get_baking_opportunities_for_level(block_level)
     baking_round0_right = baking_opportunities[0]['delegate']
-    print(f"Baking rights round 0: {baking_round0_right}")
+    name = delegate_names.get(baking_round0_right, baking_round0_right)
+    print(f"Baking rights round 0: {name} ({baking_round0_right})")
     if baking_round0_right in delegates:
-        print(f"Delegate {baking_round0_right} has baking rights for block {block_level}")
+        print(f"Delegate {name} ({baking_round0_right}) has baking rights for block {block_level}")
         block_info = rpc.get_block_info(block_level)
         baker = block_info['metadata']['baker']
         if baker != baking_round0_right:
-            print(f"Delegate {baking_round0_right} has baking rights for block {block_level}, but it was baked by {baker}.")
-            block_entry = BlockBaking(block_level=block_level, delegate=baking_round0_right, successful=0)
+            print(f"Delegate {name} ({baking_round0_right}) has baking rights for block {block_level}, but it was baked by {baker}.")
+            block_entry = BlockBaking(block_level=block_level, delegate=baking_round0_right, successful=0, alerted=0)
+            session.add(block_entry)
+            session.commit()
         else:
-            print(f"Delegate {baking_round0_right} successfully baked block {block_level}")
-            block_entry = BlockBaking(block_level=block_level, delegate=baking_round0_right, successful=1)
-        session.add(block_entry)
-        session.commit()
+            print(f"Delegate {name} ({baking_round0_right}) successfully baked block {block_level}")
+            # Check for all previous missed, alerted, unrecovered bakings for this delegate
+            missed_entries = session.query(BlockBaking).filter_by(delegate=baking_round0_right, successful=0, alerted=1, recovered=0).order_by(BlockBaking.block_level.asc()).all()
+            if missed_entries:
+                first_missed = missed_entries[0]
+                last_missed = missed_entries[-1]
+                send_alert(f"Delegate {name} ({baking_round0_right}) has successfully baked block {block_level} after missing blocks.")
+                for entry in missed_entries:
+                    entry.recovered = 1
+                session.commit()
+            block_entry = BlockBaking(block_level=block_level, delegate=baking_round0_right, successful=1, alerted=0)
+            session.add(block_entry)
+            session.commit()
 
 def process_attestation_rights(session, rpc, block_level, delegates):
     attestation_opportunities = rpc.get_attestation_opportunities_for_level(block_level)
 
     for attestation_opportunity in attestation_opportunities:
         attestation_delegate = attestation_opportunity['delegate']
+        name = delegate_names.get(attestation_delegate, attestation_delegate)
         if attestation_delegate in delegates:
-            print(f"Delegate {attestation_delegate} has attestation rights for block {block_level}")
+            print(f"Delegate {name} ({attestation_delegate}) has attestation rights for block {block_level}")
             block_info = rpc.get_block_info(block_level)
             operations = block_info['operations']
             attested = False
             for attestation in operations[0]:
                 for content in attestation['contents']:
                     if (content['kind'] == 'attestation_with_dal' or content['kind'] == 'attestation') and content['metadata']['delegate'] == attestation_delegate:
-                        print(f"Delegate {attestation_delegate} successfully attested block {block_level}")
+                        print(f"Delegate {name} ({attestation_delegate}) successfully attested block {block_level}")
                         attested = True
                         break
                     if content['kind'] == 'attestations_aggregate':
                         for committee in content['metadata']['committee']:
                             if committee['delegate'] == attestation_delegate:
-                                print(f"Delegate {attestation_delegate} successfully attested block {block_level}")
+                                print(f"Delegate {name} ({attestation_delegate}) successfully attested block {block_level}")
                                 attested = True
                                 break
             if attested:
-                block_entry = BlockAttestation(block_level=block_level, delegate=attestation_delegate, successful=1)
+                block_entry = BlockAttestation(block_level=block_level, delegate=attestation_delegate, successful=1, alerted=0)
             else:
-                print(f"Delegate {attestation_delegate} did NOT attest block {block_level}")
-                block_entry = BlockAttestation(block_level=block_level, delegate=attestation_delegate, successful=0)
+                print(f"Delegate {name} ({attestation_delegate}) did NOT attest block {block_level}")
+                block_entry = BlockAttestation(block_level=block_level, delegate=attestation_delegate, successful=0, alerted=0)
             session.add(block_entry)
             session.commit()
 
@@ -121,9 +139,15 @@ def check_for_baking_alerts(session, delegates, threshold):
     Sends alert if so.
     """
     for delegate in delegates:
-        missed_count = session.query(BlockBaking).filter_by(delegate=delegate, successful=0).count()
+        # Only count missed bakings that have not been alerted
+        missed_unalerted = session.query(BlockBaking).filter_by(delegate=delegate, successful=0, alerted=0).all()
+        missed_count = len(missed_unalerted)
         if missed_count >= threshold:
-            send_alert(f"!!! Delegate {delegate} missed {missed_count} bakings (threshold: {threshold})!")
+            send_alert(f"!!! Delegate {delegate} missed {missed_count} new bakings (threshold: {threshold}) within the last {ALERT_BAKING_BLOCK_WINDOW} blocks!")
+            # Mark these as alerted
+            for entry in missed_unalerted:
+                entry.alerted = 1
+            session.commit()
 
 def check_for_attestation_alerts(session, delegates, threshold):
     """
@@ -131,9 +155,15 @@ def check_for_attestation_alerts(session, delegates, threshold):
     Sends alert if so.
     """
     for delegate in delegates:
-        missed_count = session.query(BlockAttestation).filter_by(delegate=delegate, successful=0).count()
+        # Only count missed attestations that have not been alerted
+        missed_unalerted = session.query(BlockAttestation).filter_by(delegate=delegate, successful=0, alerted=0).all()
+        missed_count = len(missed_unalerted)
         if missed_count >= threshold:
-            send_alert(f"!!! Delegate {delegate} missed {missed_count} attestations (threshold: {threshold})!")
+            send_alert(f"!!! Delegate {delegate} missed {missed_count} new attestations (threshold: {threshold}) within the last {ALERT_ATTESTATION_BLOCK_WINDOW} blocks!")
+            # Mark these as alerted
+            for entry in missed_unalerted:
+                entry.alerted = 1
+            session.commit()
 
 def main():
     # Database setup

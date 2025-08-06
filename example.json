@@ -1,0 +1,14 @@
+[
+  {
+    "address": "tz1Zt8QQ9aBznYNk5LUBjtME9DuExomw9YRs",
+    "name": "Main Baker"
+  },
+  {
+    "address": "tz1otheraddressxxxxxxxxxxxxxxxxxxxxxxxx",
+    "name": "Backup Baker"
+  },
+  {
+    "address": "tz1anotheraddressxxxxxxxxxxxxxxxxxxxxx"
+    // name is optional
+  }
+]

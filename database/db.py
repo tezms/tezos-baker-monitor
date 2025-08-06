@@ -17,6 +17,8 @@ class BlockBaking(Base):
     block_level = Column(Integer, nullable=False)
     delegate = Column(Integer, nullable=False)
     successful = Column(Integer, nullable=False)  # 1 for success, 0 for missed
+    alerted = Column(Integer, nullable=False, default=0)  # 1 if alert sent, 0 otherwise
+    recovered = Column(Integer, nullable=False, default=0)  # 1 if recovery alert sent, 0 otherwise
 
 # table for both successful and missed attestations
 class BlockAttestation(Base):
@@ -25,6 +27,7 @@ class BlockAttestation(Base):
     block_level = Column(Integer, nullable=False)
     delegate = Column(Integer, nullable=False)
     successful = Column(Integer, nullable=False)  # 1 for success, 0 for missed
+    alerted = Column(Integer, nullable=False, default=0)  # 1 if alert sent, 0 otherwise
 
 def get_engine(db_url):
     return create_engine(db_url)
