@@ -6,6 +6,7 @@ import datetime
 # Optionally send alerts to AWS CloudWatch
 SEND_ALERT_TO_CLOUDWATCH = os.getenv('SEND_ALERT_TO_CLOUDWATCH', 'false').lower() == 'true'
 CLOUDWATCH_LOG_GROUP = os.getenv('CLOUDWATCH_LOG_GROUP', 'TezosBakerMonitorAlerts')
+CLOUDWATCH_STREAM_NAME = os.getenv('CLOUDWATCH_STREAM_NAME', 'TezosBakerMonitorAlerts')
 
 # Optionally send alerts to Telegram
 SEND_ALERT_TO_TELEGRAM = os.getenv('SEND_ALERT_TO_TELEGRAM', 'false').lower() == 'true'
@@ -27,7 +28,7 @@ def send_alert_to_cloudwatch(message):
     except client.exceptions.ResourceAlreadyExistsException:
         pass
     # Ensure log stream exists
-    log_stream_name = 'alerts'
+    log_stream_name = CLOUDWATCH_STREAM_NAME
     try:
         client.create_log_stream(logGroupName=CLOUDWATCH_LOG_GROUP, logStreamName=log_stream_name)
     except client.exceptions.ResourceAlreadyExistsException:
