@@ -47,16 +47,16 @@ def process_baking_rights(session, rpc, block_level, delegates):
     name = delegate_names.get(baking_round0_right, baking_round0_right)
     print(f"Baking rights round 0: {name} ({baking_round0_right})")
     if baking_round0_right in delegates:
-        print(f"Delegate {name} ({baking_round0_right}) has baking rights for block {block_level}")
+        print(f"Delegate \"{name}\" ({baking_round0_right}) has baking rights for block {block_level}")
         block_info = rpc.get_block_info(block_level)
         baker = block_info['metadata']['baker']
         if baker != baking_round0_right:
-            print(f"Delegate {name} ({baking_round0_right}) has baking rights for block {block_level}, but it was baked by {baker}.")
+            print(f"Delegate \"{name}\" ({baking_round0_right}) has baking rights for block {block_level}, but it was baked by {baker}.")
             block_entry = BlockBaking(block_level=block_level, delegate=baking_round0_right, successful=0, alerted=0)
             session.add(block_entry)
             session.commit()
         else:
-            print(f"Delegate {name} ({baking_round0_right}) successfully baked block {block_level}")
+            print(f"Delegate \"{name}\" ({baking_round0_right}) successfully baked block {block_level}")
             # Check for all previous missed, alerted, unrecovered bakings for this delegate
             missed_entries = session.query(BlockBaking).filter_by(delegate=baking_round0_right, successful=0, alerted=1, recovered=0).order_by(BlockBaking.block_level.asc()).all()
             if missed_entries:
@@ -77,20 +77,20 @@ def process_attestation_rights(session, rpc, block_level, delegates):
         attestation_delegate = attestation_opportunity['delegate']
         name = delegate_names.get(attestation_delegate, attestation_delegate)
         if attestation_delegate in delegates:
-            print(f"Delegate {name} ({attestation_delegate}) has attestation rights for block {block_level}")
+            print(f"Delegate \"{name}\"s ({attestation_delegate}) has attestation rights for block {block_level}")
             block_info = rpc.get_block_info(block_level)
             operations = block_info['operations']
             attested = False
             for attestation in operations[0]:
                 for content in attestation['contents']:
                     if (content['kind'] == 'attestation_with_dal' or content['kind'] == 'attestation') and content['metadata']['delegate'] == attestation_delegate:
-                        print(f"Delegate {name} ({attestation_delegate}) successfully attested block {block_level}")
+                        print(f"Delegate \"{name}\" ({attestation_delegate}) successfully attested block {block_level}")
                         attested = True
                         break
                     if content['kind'] == 'attestations_aggregate':
                         for committee in content['metadata']['committee']:
                             if committee['delegate'] == attestation_delegate:
-                                print(f"Delegate {name} ({attestation_delegate}) successfully attested block {block_level}")
+                                print(f"Delegate \"{name}\" ({attestation_delegate}) successfully attested block {block_level}")
                                 attested = True
                                 break
             if attested:
@@ -139,11 +139,12 @@ def check_for_baking_alerts(session, delegates, threshold):
     Sends alert if so.
     """
     for delegate in delegates:
+        name = delegate_names.get(delegate, delegate)
         # Only count missed bakings that have not been alerted
         missed_unalerted = session.query(BlockBaking).filter_by(delegate=delegate, successful=0, alerted=0).all()
         missed_count = len(missed_unalerted)
         if missed_count >= threshold:
-            send_alert(f"!!! Delegate {delegate} missed {missed_count} new bakings (threshold: {threshold}) within the last {ALERT_BAKING_BLOCK_WINDOW} blocks!")
+            send_alert(f"!!! Delegate \"{name}\" ({delegate}) missed {missed_count} new bakings (threshold: {threshold}) within the last {ALERT_BAKING_BLOCK_WINDOW} blocks!")
             # Mark these as alerted
             for entry in missed_unalerted:
                 entry.alerted = 1
@@ -155,11 +156,12 @@ def check_for_attestation_alerts(session, delegates, threshold):
     Sends alert if so.
     """
     for delegate in delegates:
+        name = delegate_names.get(delegate, delegate)
         # Only count missed attestations that have not been alerted
         missed_unalerted = session.query(BlockAttestation).filter_by(delegate=delegate, successful=0, alerted=0).all()
         missed_count = len(missed_unalerted)
         if missed_count >= threshold:
-            send_alert(f"!!! Delegate {delegate} missed {missed_count} new attestations (threshold: {threshold}) within the last {ALERT_ATTESTATION_BLOCK_WINDOW} blocks!")
+            send_alert(f"!!! Delegate \"{name}\" ({delegate}) missed {missed_count} new attestations (threshold: {threshold}) within the last {ALERT_ATTESTATION_BLOCK_WINDOW} blocks!")
             # Mark these as alerted
             for entry in missed_unalerted:
                 entry.alerted = 1
