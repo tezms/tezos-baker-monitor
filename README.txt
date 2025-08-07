@@ -22,20 +22,22 @@ Setup
 
 2. Configure your `.env` file with the following variables:
    - `RPC_URL` - Tezos node RPC endpoint
-   - `DELEGATES_TO_MONITOR_PARAMETER` - Comma-separated list of delegates to monitor
+   - `DELEGATES_TO_MONITOR_PARAMETER` - Json file containting the list of delegates to monitor
    - `BLOCK_SLIDING_WINDOW_SIZE` - Number of blocks to look back
    - `ALERT_BAKING_THRESHOLD` - Missed baking threshold
    - `ALERT_BAKING_BLOCK_WINDOW` - Block window for baking alerts
    - `ALERT_ATTESTATION_THRESHOLD` - Missed attestation threshold
    - `ALERT_ATTESTATION_BLOCK_WINDOW` - Block window for attestation alerts
-   - (Optional) `SEND_ALERT_TO_CLOUDWATCH=true` and `CLOUDWATCH_LOG_GROUP=YourLogGroup` for AWS CloudWatch alerts
+   - (Optional) `SEND_ALERT_TO_CLOUDWATCH=true`, `CLOUDWATCH_LOG_GROUP=YourLogGroup`, `CLOUDWATCH_STREAM_NAME=alerts` for AWS CloudWatch alerts
    - (Optional) `SEND_ALERT_TO_TELEGRAM=true`, `TELEGRAM_BOT_TOKEN=...`, `TELEGRAM_CHAT_ID=...` for Telegram alerts
 
-3. (Optional) For AWS CloudWatch alerts, install boto3 and configure AWS credentials:
+3. (Optional) For AWS CloudWatch alerts
+   - install boto3:
    ```bash
    pip install boto3
-   aws configure
    ```
+   
+   - Configure AWS or assign policy to EC2 instance
 
 4. (Optional) For Telegram alerts, create a bot and get your chat ID.
 
@@ -49,7 +51,13 @@ python3 main.py
 The script will:
 - Monitor delegates for missed bakings and attestations
 - Store results in the database
-- Send alerts if thresholds are exceeded
+- Send alerts if thresholds are exceeded. Send recovery alert, if a baker successfully bakes again a block after an baking alert was triggered.
+
+The script should be executed regularly to remain in sync with the blockchain status.
+Thus, consider adding a cron job. For instance, a cron job running every minute:
+```bash
+* * * * * cd /home/ec2-user/ghost/tezos-baker-monitor/ && /home/ec2-user/ghost/tezos-baker-monitor/myenv/bin/python3 /home/ec2-user/ghost/tezos-baker-monitor/main.py >> /home/ec2-user/cron-ghost.log 2>&1
+```
 
 Database
 --------
