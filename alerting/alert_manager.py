@@ -8,13 +8,16 @@ SEND_ALERT_TO_CLOUDWATCH = os.getenv('SEND_ALERT_TO_CLOUDWATCH', 'false').lower(
 CLOUDWATCH_LOG_GROUP = os.getenv('CLOUDWATCH_LOG_GROUP', 'TezosBakerMonitorAlerts')
 CLOUDWATCH_STREAM_NAME = os.getenv('CLOUDWATCH_STREAM_NAME', 'TezosBakerMonitorAlerts')
 
+# Optionally send alerts to AWS CloudWatch
+SEND_LOG_TO_CLOUDWATCH = os.getenv('SEND_LOG_TO_CLOUDWATCH', 'false').lower() == 'true'
+
 # Optionally send alerts to Telegram
 SEND_ALERT_TO_TELEGRAM = os.getenv('SEND_ALERT_TO_TELEGRAM', 'false').lower() == 'true'
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 REGION = os.getenv('AWS_REGION', 'eu-west-1')
 
-def send_alert_to_cloudwatch(message):
+def send_message_to_cloudwatch(message):
     """
     Send alert message to AWS CloudWatch log group.
     Requires AWS credentials to be configured.
@@ -55,7 +58,7 @@ def send_alert_to_cloudwatch(message):
     client.put_log_events(**log_event)
     print(f"CloudWatch alert sent: {message}")
 
-def send_alert_to_telegram(message):
+def send_message_to_telegram(message):
     """
     Send alert message to a Telegram chat using a bot.
     Requires TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID to be set.
@@ -78,6 +81,12 @@ def send_alert_to_telegram(message):
 def send_alert(message):
     print(f"ALERT: {message}")
     if SEND_ALERT_TO_CLOUDWATCH:
-        send_alert_to_cloudwatch(message)
+        send_message_to_cloudwatch(message)
     if SEND_ALERT_TO_TELEGRAM:
-        send_alert_to_telegram(message)
+        send_message_to_telegram(message)
+
+def send_log(message):
+    print(f"Log: {message}")
+    if SEND_LOG_TO_CLOUDWATCH:
+        send_message_to_cloudwatch(message)
+    

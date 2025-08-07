@@ -4,7 +4,7 @@ load_dotenv()
 import os
 import time
 from rpc.rpc_client import RPC
-from alerting.alert_manager import send_alert
+from alerting.alert_manager import send_alert, send_log
 from database.db import get_engine, get_session, init_db, State, BlockBaking, BlockAttestation
 
 # Load environment variables from .env
@@ -18,6 +18,7 @@ ALERT_BAKING_BLOCK_WINDOW = int(os.getenv('ALERT_BAKING_BLOCK_WINDOW'))
 ALERT_ATTESTATION_THRESHOLD = int(os.getenv('ALERT_ATTESTATION_THRESHOLD'))
 ALERT_ATTESTATION_BLOCK_WINDOW = int(os.getenv('ALERT_ATTESTATION_BLOCK_WINDOW'))
 ALERT_INACTIVE_STATE_THRESHOLD = int(os.getenv('ALERT_INACTIVE_STATE_THRESHOLD', 600))  # Default to 10 minutes
+BLOCKEXPLORER_URL = os.getenv('BLOCKEXPLORER_URL', 'https://tzkt.io')
 # Load delegates from JSON file
 with open(DELEGATES_TO_MONITOR_PARAMETER, 'r') as f:
     delegates_json = json.load(f)
@@ -96,7 +97,7 @@ def process_attestation_rights(session, rpc, block_level, delegates):
             if attested:
                 block_entry = BlockAttestation(block_level=block_level, delegate=attestation_delegate, successful=1, alerted=0)
             else:
-                print(f"Delegate {name} ({attestation_delegate}) did NOT attest block {block_level}")
+                send_log(f"Delegate {name} ({attestation_delegate}) did NOT attest block {block_level}")
                 block_entry = BlockAttestation(block_level=block_level, delegate=attestation_delegate, successful=0, alerted=0)
             session.add(block_entry)
             session.commit()
@@ -140,11 +141,12 @@ def check_for_baking_alerts(session, delegates, threshold):
     """
     for delegate in delegates:
         name = delegate_names.get(delegate, delegate)
+        link = f"{BLOCKEXPLORER_URL}/{delegate}/schedule"
         # Only count missed bakings that have not been alerted
         missed_unalerted = session.query(BlockBaking).filter_by(delegate=delegate, successful=0, alerted=0).all()
         missed_count = len(missed_unalerted)
         if missed_count >= threshold:
-            send_alert(f"!!! Delegate \"{name}\" ({delegate}) missed {missed_count} new bakings (threshold: {threshold}) within the last {ALERT_BAKING_BLOCK_WINDOW} blocks!")
+            send_alert(f"!!! Delegate \"{name}\" ({delegate}) missed {missed_count} new bakings (threshold: {threshold}) within the last {ALERT_BAKING_BLOCK_WINDOW} blocks! [tzkt.io link]({link})")
             # Mark these as alerted
             for entry in missed_unalerted:
                 entry.alerted = 1
@@ -157,11 +159,12 @@ def check_for_attestation_alerts(session, delegates, threshold):
     """
     for delegate in delegates:
         name = delegate_names.get(delegate, delegate)
+        link = f"{BLOCKEXPLORER_URL}/{delegate}/schedule"
         # Only count missed attestations that have not been alerted
         missed_unalerted = session.query(BlockAttestation).filter_by(delegate=delegate, successful=0, alerted=0).all()
         missed_count = len(missed_unalerted)
         if missed_count >= threshold:
-            send_alert(f"!!! Delegate \"{name}\" ({delegate}) missed {missed_count} new attestations (threshold: {threshold}) within the last {ALERT_ATTESTATION_BLOCK_WINDOW} blocks!")
+            send_alert(f"!!! Delegate \"{name}\" ({delegate}) missed {missed_count} new attestations (threshold: {threshold}) within the last {ALERT_ATTESTATION_BLOCK_WINDOW} blocks! [tzkt.io link]({link})")
             # Mark these as alerted
             for entry in missed_unalerted:
                 entry.alerted = 1

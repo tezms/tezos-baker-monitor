@@ -59,6 +59,13 @@ Thus, consider adding a cron job. For instance, a cron job running every minute:
 * * * * * cd /home/ec2-user/ghost/tezos-baker-monitor/ && /home/ec2-user/ghost/tezos-baker-monitor/myenv/bin/python3 /home/ec2-user/ghost/tezos-baker-monitor/main.py >> /home/ec2-user/cron-ghost.log 2>&1
 ```
 
+Consider regularly backing up or deleting log data.
+For example, you can implement a cron job to move the log file once a week:
+```bash
+0 3 * * 0 mv /home/ec2-user/cron-ghost.log /home/ec2-user/cron-ghost_old.log
+```
+This ensures that at least one week of log data is always retained.
+
 Database
 --------
 By default, uses SQLite (`state.db`). You can switch to PostgreSQL by changing the `db_url` in `main.py`.
@@ -70,3 +77,14 @@ Customization
 
 ---
 For more details, see the code and comments in each module.
+
+Telegram setup / configuration
+------------------------------
+1. Create new bot with BotFather `/newbot`
+2. Extract botId token
+3. Create group in Telegram
+4. Add the bot to the group
+5. Change the bot's group policy to allow accessing message in the group chat. 
+6. Send message in group
+7. Call `https://api.telegram.org/bot<token>/getUpdates` and extract chat id (chat_id is an ID with 9-10 decimals)
+8. Change the bot's group policy to disallow accessing message in the group chat. 
