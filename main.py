@@ -19,6 +19,7 @@ ALERT_ATTESTATION_THRESHOLD = int(os.getenv('ALERT_ATTESTATION_THRESHOLD'))
 ALERT_ATTESTATION_BLOCK_WINDOW = int(os.getenv('ALERT_ATTESTATION_BLOCK_WINDOW'))
 ALERT_INACTIVE_STATE_THRESHOLD = int(os.getenv('ALERT_INACTIVE_STATE_THRESHOLD', 600))  # Default to 10 minutes
 BLOCKEXPLORER_URL = os.getenv('BLOCKEXPLORER_URL', 'https://tzkt.io')
+IDENTIFIER = os.getenv('IDENTIFIER', 'tezos-monitor')
 # Load delegates from JSON file
 with open(DELEGATES_TO_MONITOR_PARAMETER, 'r') as f:
     delegates_json = json.load(f)
@@ -130,7 +131,7 @@ def check_last_processed_timestamp(session, max_age_seconds):
         now = int(time.time())
         age = now - state.timestamp
         if age > max_age_seconds:
-            send_alert(f"!!! State is stale! Last processed timestamp is {age} seconds old.")
+            send_alert(f"!!! {IDENTIFIER} is stale! Last processed timestamp is {age} seconds old.")
     else:
         print("No timestamp found in state table.")
 
@@ -207,7 +208,7 @@ def main():
     check_for_baking_alerts(session, delegates, ALERT_BAKING_THRESHOLD)
     check_for_attestation_alerts(session, delegates, ALERT_ATTESTATION_THRESHOLD)
     save_last_processed_level(session, latest_finalized_level)
-    print("All blocks processed. Last processed level saved to database.")
+    send_log("All blocks processed. Last processed level saved to database.")
 
 if __name__ == "__main__":
     main()
