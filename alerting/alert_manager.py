@@ -77,14 +77,16 @@ def send_message_to_telegram(message):
     
 
 def send_alert(message):
-    print(f"[{IDENTIFIER}]: ALERT - {message}")
+    full_message = f"[{IDENTIFIER}]: ALERT - {message}"
+    print(full_message)
     if SEND_TO_CLOUDWATCH:
-        send_message_to_cloudwatch(message)
+        send_message_to_cloudwatch(full_message)
     if SEND_TO_TELEGRAM:
-        send_message_to_telegram(message)
+        send_message_to_telegram(full_message)
 
 def send_log(message):
-    print(f"[{IDENTIFIER}]: Log - {message}")
+    full_message = f"[{IDENTIFIER}]: Log - {message}"
+    print(full_message)
     if SEND_TO_CLOUDWATCH:
-        send_message_to_cloudwatch(message)
+        send_message_to_cloudwatch(full_message)
     
