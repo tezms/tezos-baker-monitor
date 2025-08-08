@@ -131,13 +131,13 @@ def check_last_processed_timestamp(session, max_age_seconds):
         now = int(time.time())
         age = now - state.timestamp
         if age > max_age_seconds:
-            send_alert(f"!!! {IDENTIFIER} is stale! Last processed timestamp is {age} seconds old.")
+            send_alert(f"!!! Staled! Last processed timestamp is {age} seconds old.")
     else:
         print("No timestamp found in state table.")
 
 def check_for_baking_alerts(session, delegates, threshold):
     """
-    Checks if missed bakings in block_baking table meet or exceed threshold.
+    Checks if missed bakings in block_baking table meet or exceed threshold.s
     Sends alert if so.
     """
     for delegate in delegates:

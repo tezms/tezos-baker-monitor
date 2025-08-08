@@ -5,15 +5,12 @@ import datetime
 
 # Optionally send alerts to AWS CloudWatch
 IDENTIFIER = os.getenv('IDENTIFIER', 'tezos-monitor')
-SEND_ALERT_TO_CLOUDWATCH = os.getenv('SEND_ALERT_TO_CLOUDWATCH', 'false').lower() == 'true'
+SEND_TO_CLOUDWATCH = os.getenv('SEND_TO_CLOUDWATCH', 'false').lower() == 'true'
 CLOUDWATCH_LOG_GROUP = os.getenv('CLOUDWATCH_LOG_GROUP', 'TezosBakerMonitorAlerts')
 CLOUDWATCH_STREAM_NAME = os.getenv('CLOUDWATCH_STREAM_NAME', IDENTIFIER)
 
-# Optionally send alerts to AWS CloudWatch
-SEND_LOG_TO_CLOUDWATCH = os.getenv('SEND_LOG_TO_CLOUDWATCH', 'false').lower() == 'true'
-
 # Optionally send alerts to Telegram
-SEND_ALERT_TO_TELEGRAM = os.getenv('SEND_ALERT_TO_TELEGRAM', 'false').lower() == 'true'
+SEND_TO_TELEGRAM = os.getenv('SEND_TO_TELEGRAM', 'false').lower() == 'true'
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 REGION = os.getenv('AWS_REGION', 'eu-west-1')
@@ -80,14 +77,14 @@ def send_message_to_telegram(message):
     
 
 def send_alert(message):
-    print(f"ALERT: {message}")
-    if SEND_ALERT_TO_CLOUDWATCH:
+    print(f"[{IDENTIFIER}]: ALERT - {message}")
+    if SEND_TO_CLOUDWATCH:
         send_message_to_cloudwatch(message)
-    if SEND_ALERT_TO_TELEGRAM:
+    if SEND_TO_TELEGRAM:
         send_message_to_telegram(message)
 
 def send_log(message):
-    print(f"Log: {message}")
-    if SEND_LOG_TO_CLOUDWATCH:
+    print(f"[{IDENTIFIER}]: Log - {message}")
+    if SEND_TO_CLOUDWATCH:
         send_message_to_cloudwatch(message)
     
