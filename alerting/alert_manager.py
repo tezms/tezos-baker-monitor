@@ -7,7 +7,7 @@ import datetime
 IDENTIFIER = os.getenv('IDENTIFIER', 'tezos-monitor')
 SEND_ALERT_TO_CLOUDWATCH = os.getenv('SEND_ALERT_TO_CLOUDWATCH', 'false').lower() == 'true'
 CLOUDWATCH_LOG_GROUP = os.getenv('CLOUDWATCH_LOG_GROUP', 'TezosBakerMonitorAlerts')
-CLOUDWATCH_STREAM_NAME = os.getenv('CLOUDWATCH_STREAM_NAME', {IDENTIFIER})
+CLOUDWATCH_STREAM_NAME = os.getenv('CLOUDWATCH_STREAM_NAME', IDENTIFIER)
 
 # Optionally send alerts to AWS CloudWatch
 SEND_LOG_TO_CLOUDWATCH = os.getenv('SEND_LOG_TO_CLOUDWATCH', 'false').lower() == 'true'
