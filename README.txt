@@ -56,7 +56,7 @@ The script will:
 The script should be executed regularly to remain in sync with the blockchain status.
 Thus, consider adding a cron job. For instance, a cron job running every minute:
 ```bash
-* * * * * cd /home/ec2-user/ghost/tezos-baker-monitor/ && /home/ec2-user/ghost/tezos-baker-monitor/myenv/bin/python3 /home/ec2-user/ghost/tezos-baker-monitor/main.py >> /home/ec2-user/cron-ghost.log 2>&1
+* * * * * flock -n /tmp/tezos-monitor-ghost.lockfile bash -c 'cd /home/ec2-user/ghost/tezos-baker-monitor/ && /home/ec2-user/ghost/tezos-baker-monitor/myenv/bin/python3 /home/ec2-user/ghost/tezos-baker-monitor/main.py >> /home/ec2-user/cron-ghost.log 2>&1'
 ```
 
 Consider regularly backing up or deleting log data.

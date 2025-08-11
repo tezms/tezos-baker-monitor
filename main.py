@@ -121,20 +121,6 @@ def remove_entries_from_block_attestations(session, current_block_level, window_
     session.commit()
     print(f"Removed {deleted} entries from block_attestation older than block level {cutoff_level}.")
 
-def check_last_processed_timestamp(session, max_age_seconds):
-    """
-    Checks if the last processed timestamp in State is older than max_age_seconds.
-    Sends an alert if the state is stale.
-    """
-    state = session.query(State).first()
-    if state and state.timestamp:
-        now = int(time.time())
-        age = now - state.timestamp
-        if age > max_age_seconds:
-            send_alert(f"!!! Staled! Last processed timestamp is {age} seconds old.")
-    else:
-        print("No timestamp found in state table.")
-
 def check_for_baking_alerts(session, delegates, threshold):
     """
     Checks if missed bakings in block_baking table meet or exceed threshold.s
@@ -186,7 +172,16 @@ def main():
     print(f"Last processed level: {last_processed_level}")
 
     # Check for staled state
-    check_last_processed_timestamp(session, ALERT_INACTIVE_STATE_THRESHOLD)
+    state = session.query(State).first()
+    was_stale = False
+    if state and state.timestamp:
+        now = int(time.time())
+        age = now - state.timestamp
+        if age > ALERT_INACTIVE_STATE_THRESHOLD:
+            send_alert(f"!!! Staled! Last processed timestamp is {age} seconds old.")
+            was_stale = True
+    else:
+        print("No timestamp found in state table.")
 
     # Get latest finalized level
     latest_finalized_level = rpc.get_latest_finalized_level()
@@ -204,11 +199,13 @@ def main():
         print("Processing block:", block_level)
         process_baking_rights(session, rpc, block_level, delegates)
         process_attestation_rights(session, rpc, block_level, delegates)
-        
+
     check_for_baking_alerts(session, delegates, ALERT_BAKING_THRESHOLD)
     check_for_attestation_alerts(session, delegates, ALERT_ATTESTATION_THRESHOLD)
     save_last_processed_level(session, latest_finalized_level)
     send_log("All blocks processed. Last processed level saved to database.")
+    if was_stale:
+        send_alert("Monitor has resumed processing after a stale period.")
 
 if __name__ == "__main__":
     main()
