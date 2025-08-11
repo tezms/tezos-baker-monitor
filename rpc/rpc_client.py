@@ -12,7 +12,7 @@ class RPC:
         # Note: Not used.
         self.max_priority = 15
 
-    def get_url(self, url):
+    def get_url(self, url, timeout=10):
         r = None
         with requests.Session() as s:
             retries = Retry(
@@ -24,67 +24,65 @@ class RPC:
             s.mount('http://', HTTPAdapter(max_retries=retries))
             s.mount('https://', HTTPAdapter(max_retries=retries))
             print('About to RPC GET '+url)
-            r = s.get(url)
+            r = s.get(url, timeout=timeout)
         return r
 
-    def get_current_block(self):
+    def get_current_block(self, timeout=10):
         url = '{}/monitor/bootstrapped'.format(self.node_url)
-        r = self.get_url(url)
+        r = self.get_url(url, timeout=timeout)
         return r.json()['block']
 
-    def get_block_info(self, block):
+    def get_block_info(self, block, timeout=10):
         url = '{}/chains/main/blocks/{}'.format(self.node_url, block)
-        r = self.get_url(url)
+        r = self.get_url(url, timeout=timeout)
         return r.json()
 
-    def get_latest_finalized_level(self):
+    def get_latest_finalized_level(self, timeout=10):
         url = '{}/chains/main/blocks/head~2'.format(self.node_url)
-        r = self.get_url(url)
+        r = self.get_url(url, timeout=timeout)
         header = r.json()['header']
         return header['level'] 
 
-    def get_current_level(self):
-        block_info = self.get_block_info(self.current_block)
+    def get_current_level(self, timeout=10):
+        block_info = self.get_block_info(self.current_block, timeout=timeout)
         header = block_info['header']
         return header['level']
 
-    def get_nth_predecessor(self, n):
-        block_hash = self.get_current_block()
-        level = int(self.get_current_level())
+    def get_nth_predecessor(self, n, timeout=10):
+        block_hash = self.get_current_block(timeout=timeout)
+        level = int(self.get_current_level(timeout=timeout))
         url = '{}/chains/main/blocks/{}/header'.format(self.node_url, level - n)
-        r = self.get_url(url)
+        r = self.get_url(url, timeout=timeout)
         return r.json()
 
-    def get_baking_opportunities_for_level(self, level):
+    def get_baking_opportunities_for_level(self, level, timeout=10):
         opportunities = []
         url = '{}/chains/main/blocks/{}~1/helpers/baking_rights'.format(self.node_url, level)
-        r = self.get_url(url)
+        r = self.get_url(url, timeout=timeout)
         if r:
             opportunities = r.json()
         return opportunities
 
-        return opportunities
-
-    def get_baking_opportunities_for_block(self, block_hash):
+    def get_baking_opportunities_for_block(self, block_hash, timeout=10):
         opportunities = []
         url = '{}/chains/main/blocks/{}~1/helpers/baking_rights'.format(self.node_url, block_hash)
-        r = self.get_url(url)
+        r = self.get_url(url, timeout=timeout)
         if r:
             opportunities = r.json()
         return opportunities
 
-    def get_attestation_opportunities_for_level(self, level):
+    def get_attestation_opportunities_for_level(self, level, timeout=10):
         opportunities = []
         url = '{}/chains/main/blocks/{}~1/helpers/attestation_rights'.format(self.node_url, level)
-        r = self.get_url(url)
+        r = self.get_url(url, timeout=timeout)
         if r:
             opportunities = r.json()[0]["delegates"]
         return opportunities
 
-    def get_attestation_opportunities_for_block(self, block_hash):
+    def get_attestation_opportunities_for_block(self, block_hash, timeout=10):
         opportunities = []
         url = '{}/chains/main/blocks/{}~1/helpers/attestation_rights'.format(self.node_url, block_hash)
-        r = self.get_url(url)
+        r = self.get_url(url, timeout=timeout)
         if r:
             opportunities = r.json()[0]["delegates"]
         return opportunities

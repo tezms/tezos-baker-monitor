@@ -44,64 +44,72 @@ def save_last_processed_level(session, level):
     session.commit()
 
 def process_baking_rights(session, rpc, block_level, delegates):
-    baking_opportunities = rpc.get_baking_opportunities_for_level(block_level)
-    baking_round0_right = baking_opportunities[0]['delegate']
-    name = delegate_names.get(baking_round0_right, baking_round0_right)
-    print(f"Baking rights round 0: {name} ({baking_round0_right})")
-    if baking_round0_right in delegates:
-        print(f"Delegate \"{name}\" ({baking_round0_right}) has baking rights for block {block_level}")
-        block_info = rpc.get_block_info(block_level)
-        baker = block_info['metadata']['baker']
-        if baker != baking_round0_right:
-            print(f"Delegate \"{name}\" ({baking_round0_right}) has baking rights for block {block_level}, but it was baked by {baker}.")
-            block_entry = BlockBaking(block_level=block_level, delegate=baking_round0_right, successful=0, alerted=0)
-            session.add(block_entry)
-            session.commit()
-        else:
-            print(f"Delegate \"{name}\" ({baking_round0_right}) successfully baked block {block_level}")
-            # Check for all previous missed, alerted, unrecovered bakings for this delegate
-            missed_entries = session.query(BlockBaking).filter_by(delegate=baking_round0_right, successful=0, alerted=1, recovered=0).order_by(BlockBaking.block_level.asc()).all()
-            if missed_entries:
-                first_missed = missed_entries[0]
-                last_missed = missed_entries[-1]
-                send_alert(f"Delegate {name} ({baking_round0_right}) has successfully baked block {block_level} after missing blocks.")
-                for entry in missed_entries:
-                    entry.recovered = 1
+    try:
+        baking_opportunities = rpc.get_baking_opportunities_for_level(block_level, timeout=10)
+        baking_round0_right = baking_opportunities[0]['delegate']
+        name = delegate_names.get(baking_round0_right, baking_round0_right)
+        print(f"Baking rights round 0: {name} ({baking_round0_right})")
+        if baking_round0_right in delegates:
+            print(f"Delegate \"{name}\" ({baking_round0_right}) has baking rights for block {block_level}")
+            block_info = rpc.get_block_info(block_level, timeout=10)
+            baker = block_info['metadata']['baker']
+            if baker != baking_round0_right:
+                print(f"Delegate \"{name}\" ({baking_round0_right}) has baking rights for block {block_level}, but it was baked by {baker}.")
+                block_entry = BlockBaking(block_level=block_level, delegate=baking_round0_right, successful=0, alerted=0)
+                session.add(block_entry)
                 session.commit()
-            block_entry = BlockBaking(block_level=block_level, delegate=baking_round0_right, successful=1, alerted=0)
-            session.add(block_entry)
-            session.commit()
+            else:
+                print(f"Delegate \"{name}\" ({baking_round0_right}) successfully baked block {block_level}")
+                # Check for all previous missed, alerted, unrecovered bakings for this delegate
+                missed_entries = session.query(BlockBaking).filter_by(delegate=baking_round0_right, successful=0, alerted=1, recovered=0).order_by(BlockBaking.block_level.asc()).all()
+                if missed_entries:
+                    first_missed = missed_entries[0]
+                    last_missed = missed_entries[-1]
+                    send_alert(f"Delegate {name} ({baking_round0_right}) has successfully baked block {block_level} after missing blocks.")
+                    for entry in missed_entries:
+                        entry.recovered = 1
+                    session.commit()
+                block_entry = BlockBaking(block_level=block_level, delegate=baking_round0_right, successful=1, alerted=0)
+                session.add(block_entry)
+                session.commit()
+    except Exception as e:
+        send_alert(f"RPC error or timeout while processing baking rights for block {block_level}: {e}")
+        # Optionally: return, break, or continue
+        return
 
 def process_attestation_rights(session, rpc, block_level, delegates):
-    attestation_opportunities = rpc.get_attestation_opportunities_for_level(block_level)
-
-    for attestation_opportunity in attestation_opportunities:
-        attestation_delegate = attestation_opportunity['delegate']
-        name = delegate_names.get(attestation_delegate, attestation_delegate)
-        if attestation_delegate in delegates:
-            print(f"Delegate \"{name}\"s ({attestation_delegate}) has attestation rights for block {block_level}")
-            block_info = rpc.get_block_info(block_level)
-            operations = block_info['operations']
-            attested = False
-            for attestation in operations[0]:
-                for content in attestation['contents']:
-                    if (content['kind'] == 'attestation_with_dal' or content['kind'] == 'attestation') and content['metadata']['delegate'] == attestation_delegate:
-                        print(f"Delegate \"{name}\" ({attestation_delegate}) successfully attested block {block_level}")
-                        attested = True
-                        break
-                    if content['kind'] == 'attestations_aggregate':
-                        for committee in content['metadata']['committee']:
-                            if committee['delegate'] == attestation_delegate:
-                                print(f"Delegate \"{name}\" ({attestation_delegate}) successfully attested block {block_level}")
-                                attested = True
-                                break
-            if attested:
-                block_entry = BlockAttestation(block_level=block_level, delegate=attestation_delegate, successful=1, alerted=0)
-            else:
-                send_log(f"Delegate {name} ({attestation_delegate}) did NOT attest block {block_level}")
-                block_entry = BlockAttestation(block_level=block_level, delegate=attestation_delegate, successful=0, alerted=0)
-            session.add(block_entry)
-            session.commit()
+    try:
+        attestation_opportunities = rpc.get_attestation_opportunities_for_level(block_level, timeout=10)
+        for attestation_opportunity in attestation_opportunities:
+            attestation_delegate = attestation_opportunity['delegate']
+            name = delegate_names.get(attestation_delegate, attestation_delegate)
+            if attestation_delegate in delegates:
+                print(f"Delegate \"{name}\"s ({attestation_delegate}) has attestation rights for block {block_level}")
+                block_info = rpc.get_block_info(block_level, timeout=10)
+                operations = block_info['operations']
+                attested = False
+                for attestation in operations[0]:
+                    for content in attestation['contents']:
+                        if (content['kind'] == 'attestation_with_dal' or content['kind'] == 'attestation') and content['metadata']['delegate'] == attestation_delegate:
+                            print(f"Delegate \"{name}\" ({attestation_delegate}) successfully attested block {block_level}")
+                            attested = True
+                            break
+                        if content['kind'] == 'attestations_aggregate':
+                            for committee in content['metadata']['committee']:
+                                if committee['delegate'] == attestation_delegate:
+                                    print(f"Delegate \"{name}\" ({attestation_delegate}) successfully attested block {block_level}")
+                                    attested = True
+                                    break
+                if attested:
+                    block_entry = BlockAttestation(block_level=block_level, delegate=attestation_delegate, successful=1, alerted=0)
+                else:
+                    send_log(f"Delegate {name} ({attestation_delegate}) did NOT attest block {block_level}")
+                    block_entry = BlockAttestation(block_level=block_level, delegate=attestation_delegate, successful=0, alerted=0)
+                session.add(block_entry)
+                session.commit()
+    except Exception as e:
+        send_alert(f"RPC error or timeout while processing attestation rights for block {block_level}: {e}")
+        return
 
 def remove_entries_from_block_baking(session, current_block_level, window_blocks):
     """
